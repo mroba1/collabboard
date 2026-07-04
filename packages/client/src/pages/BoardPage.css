@@ -1,0 +1,27 @@
+.board-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg);
+}
+
+.board-workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.board-canvas-area {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.board-not-found {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--color-text-muted);
+  font-size: 15px;
+}

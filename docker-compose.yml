@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: collabboard
+      POSTGRES_PASSWORD: collabboard
+      POSTGRES_DB: collabboard
+    ports:
+      - '5432:5432'
+    volumes:
+      - collabboard_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U collabboard']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      CLIENT_ORIGIN: http://localhost:8080
+      DATABASE_URL: postgresql://collabboard:collabboard@postgres:5432/collabboard?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-this-access-secret-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-this-refresh-secret-in-production}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    ports:
+      - '4000:4000'
+    command: >
+      sh -c "npx prisma migrate deploy --schema prisma/schema.prisma && node dist/index.js"
+
+  client:
+    build:
+      context: .
+      dockerfile: packages/client/Dockerfile
+      args:
+        VITE_API_URL: http://localhost:4000
+        VITE_SOCKET_URL: http://localhost:4000
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - '8080:80'
+
+volumes:
+  collabboard_pg_data:

@@ -1,0 +1,54 @@
+.export-menu {
+  position: relative;
+}
+
+.export-trigger {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.export-trigger:hover {
+  background: var(--color-surface-alt);
+}
+
+.export-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.export-dropdown {
+  position: absolute;
+  right: 0;
+  top: 42px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  z-index: 31;
+  overflow: hidden;
+}
+
+.export-dropdown button {
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.export-dropdown button:hover {
+  background: var(--color-surface-alt);
+}

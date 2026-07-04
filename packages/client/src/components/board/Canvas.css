@@ -1,0 +1,36 @@
+.canvas-container {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--canvas-bg);
+  background-image: radial-gradient(var(--canvas-dot) 1.4px, transparent 1.4px);
+  background-size: 22px 22px;
+  touch-action: none;
+}
+
+.board-stage {
+  display: block;
+}
+
+.tool-select .konvajs-content {
+  cursor: default;
+}
+
+.tool-pan .konvajs-content {
+  cursor: grab;
+}
+
+.tool-eraser .konvajs-content {
+  cursor: not-allowed;
+}
+
+.tool-rectangle .konvajs-content,
+.tool-ellipse .konvajs-content,
+.tool-arrow .konvajs-content,
+.tool-pen .konvajs-content,
+.tool-text .konvajs-content,
+.tool-sticky .konvajs-content {
+  cursor: crosshair;
+}

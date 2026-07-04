@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BoardRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum BoardObjectType {
+  rectangle
+  ellipse
+  arrow
+  path
+  text
+  sticky
+  image
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  color         String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ownedBoards   Board[]        @relation("BoardOwner")
+  memberships   BoardMember[]
+  refreshTokens RefreshToken[]
+  createdObjects BoardObject[] @relation("ObjectCreator")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revoked   Boolean  @default(false)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Board {
+  id        String   @id @default(uuid())
+  name      String
+  color     String   @default("#10b981")
+  ownerId   String
+  owner     User     @relation("BoardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members BoardMember[]
+  objects BoardObject[]
+
+  @@index([ownerId])
+  @@map("boards")
+}
+
+model BoardMember {
+  id         String    @id @default(uuid())
+  boardId    String
+  board      Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       BoardRole @default(EDITOR)
+  isFavorite Boolean   @default(false)
+  joinedAt   DateTime  @default(now())
+
+  @@unique([boardId, userId])
+  @@index([userId])
+  @@map("board_members")
+}
+
+model BoardObject {
+  id            String          @id @default(uuid())
+  boardId       String
+  board         Board           @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  type          BoardObjectType
+  x             Float
+  y             Float
+  width         Float
+  height        Float
+  rotation      Float           @default(0)
+  zIndex        Int             @default(0)
+  fill          String?
+  stroke        String?
+  strokeWidth   Float?
+  opacity       Float?
+  data          Json            @default("{}")
+  createdBy     String
+  creator       User            @relation("ObjectCreator", fields: [createdBy], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([boardId])
+  @@map("board_objects")
+}
