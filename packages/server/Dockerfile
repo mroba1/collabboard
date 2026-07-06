@@ -1,5 +1,5 @@
 FROM node:20-alpine AS base
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl ca-certificates && update-ca-certificates
 WORKDIR /app
 
 FROM base AS deps
