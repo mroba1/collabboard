@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: collabboard-server
+    runtime: docker
+    dockerfilePath: packages/server/Dockerfile
+    dockerContext: .
+    dockerCommand: sh -c "npx prisma migrate deploy --schema prisma/schema.prisma && node dist/index.js"
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: CLIENT_ORIGIN
+        sync: false
