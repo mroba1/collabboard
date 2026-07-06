@@ -5,7 +5,7 @@
     "dockerfilePath": "packages/server/Dockerfile"
   },
   "deploy": {
-    "startCommand": "node -e \"const net=require('net');const u=new URL(process.env.DATABASE_URL);const s=net.createConnection({host:u.hostname,port:u.port||5432},()=>{console.log('>>> TCP CONNECT OK to '+u.hostname+':'+u.port);s.end();process.exit(0)});s.on('error',e=>{console.log('>>> TCP CONNECT ERROR: '+e.message);process.exit(1)});setTimeout(()=>{console.log('>>> TCP CONNECT TIMEOUT after 10s');process.exit(1)},10000)\"; echo \">>> tcp test exit code $?\" && echo '>>> running migrations' && npx prisma migrate deploy --schema prisma/schema.prisma && echo '>>> migrations done, starting node' && node dist/index.js; echo \">>> process exited with code $?\"",
+    "startCommand": "node -e \"const net=require('net');const fs=require('fs');const w=m=>fs.writeSync(1,m+'\\n');const u=new URL(process.env.DATABASE_URL);const s=net.createConnection({host:u.hostname,port:u.port||5432},()=>{w('>>> TCP CONNECT OK to '+u.hostname+':'+u.port);s.end();process.exit(0)});s.on('error',e=>{w('>>> TCP CONNECT ERROR: '+e.message);process.exit(1)});setTimeout(()=>{w('>>> TCP CONNECT TIMEOUT after 10s');process.exit(1)},10000)\"; echo \">>> tcp test exit code $?\" && echo '>>> running migrations' && npx prisma migrate deploy --schema prisma/schema.prisma && echo '>>> migrations done, starting node' && node dist/index.js; echo \">>> process exited with code $?\"",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 5
   }
