@@ -7,7 +7,7 @@ import './AuthLayout.css';
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
-  const [email, setEmail] = useState('jordan@example.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
