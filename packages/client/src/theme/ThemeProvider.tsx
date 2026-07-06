@@ -19,7 +19,7 @@ function getSystemPrefersDark(): boolean {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
-    return stored ?? 'system';
+    return stored ?? 'light';
   });
   const [systemDark, setSystemDark] = useState(getSystemPrefersDark);
 

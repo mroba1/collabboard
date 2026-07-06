@@ -6,9 +6,10 @@ import { useBoardStore } from '../../stores/boardStore';
 import { emitCursorMove } from '../../hooks/useBoardSocket';
 import { BoardObjectView } from './objects/BoardObjectView';
 import { screenToWorld, clampScale, rectsIntersect, type Point } from '../../utils/coords';
-import { SHAPE_FILL, SHAPE_STROKE, DRAW_STROKE, randomStickyColor } from '../../utils/objectDefaults';
+import { SHAPE_FILL, SHAPE_STROKE, inkColor, randomStickyColor } from '../../utils/objectDefaults';
 import { throttle } from '../../utils/throttle';
 import { TextEditOverlay } from './TextEditOverlay';
+import { useTheme } from '../../theme/ThemeProvider';
 import './Canvas.css';
 
 interface CanvasProps {
@@ -34,6 +35,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const panLast = useRef<Point | null>(null);
   const spaceHeld = useRef(false);
+  const { resolvedMode } = useTheme();
 
   const objects = useBoardStore((s) => s.objects);
   const selectedIds = useBoardStore((s) => s.selectedIds);
@@ -172,7 +174,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
         rotation: 0,
         text: 'Double-click to edit',
         fontSize: 22,
-        fill: '#111827',
+        fill: inkColor(resolvedMode),
       } as CreateBoardObjectInput);
       setSelected([obj.id]);
       setEditingId(obj.id);
@@ -311,7 +313,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
             height: Math.abs(ey ?? 0),
             rotation: 0,
             points: preview.points,
-            stroke: DRAW_STROKE,
+            stroke: inkColor(resolvedMode),
             strokeWidth: 3,
           } as CreateBoardObjectInput);
         }
@@ -330,7 +332,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
           height: Math.max(...ys) - Math.min(...ys),
           rotation: 0,
           points: preview.points,
-          stroke: DRAW_STROKE,
+          stroke: inkColor(resolvedMode),
           strokeWidth: 3,
         } as CreateBoardObjectInput);
       }

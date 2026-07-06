@@ -6,4 +6,7 @@ export function randomStickyColor(): string {
 
 export const SHAPE_FILL = '#e0f2fe';
 export const SHAPE_STROKE = '#0284c7';
-export const DRAW_STROKE = '#111827';
+
+export function inkColor(resolvedMode: 'light' | 'dark'): string {
+  return resolvedMode === 'dark' ? '#f8fafc' : '#111827';
+}
