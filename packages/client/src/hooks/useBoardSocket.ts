@@ -12,6 +12,7 @@ export function useBoardSocket(boardId: string | undefined): void {
   const applyRemoteUpdated = useBoardStore((s) => s.applyRemoteUpdated);
   const applyRemoteDeleted = useBoardStore((s) => s.applyRemoteDeleted);
   const applyRemoteBatchCreated = useBoardStore((s) => s.applyRemoteBatchCreated);
+  const setError = useBoardStore((s) => s.setError);
 
   useEffect(() => {
     if (!boardId) return;
@@ -32,6 +33,13 @@ export function useBoardSocket(boardId: string | undefined): void {
       applyRemoteDeleted(payload.id, payload.userId, payload.clientOpId);
     const onBatch: ServerToClientEvents['object:batch:created'] = (payload) =>
       applyRemoteBatchCreated(payload.objects, payload.userId, payload.clientOpId);
+    const onServerError: ServerToClientEvents['server:error'] = (payload) => {
+      setError(payload.message);
+      // The rejected mutation may already be applied optimistically on this
+      // client with no way to roll back just that change, so re-request the
+      // authoritative snapshot to correct any local drift.
+      socket.emit('board:join', { boardId });
+    };
 
     socket.on('board:state', onState);
     socket.on('presence:update', onPresence);
@@ -41,6 +49,7 @@ export function useBoardSocket(boardId: string | undefined): void {
     socket.on('object:updated', onUpdated);
     socket.on('object:deleted', onDeleted);
     socket.on('object:batch:created', onBatch);
+    socket.on('server:error', onServerError);
 
     socket.emit('board:join', { boardId });
 
@@ -54,6 +63,7 @@ export function useBoardSocket(boardId: string | undefined): void {
       socket.off('object:updated', onUpdated);
       socket.off('object:deleted', onDeleted);
       socket.off('object:batch:created', onBatch);
+      socket.off('server:error', onServerError);
     };
   }, [
     boardId,
@@ -65,6 +75,7 @@ export function useBoardSocket(boardId: string | undefined): void {
     applyRemoteUpdated,
     applyRemoteDeleted,
     applyRemoteBatchCreated,
+    setError,
   ]);
 }
 

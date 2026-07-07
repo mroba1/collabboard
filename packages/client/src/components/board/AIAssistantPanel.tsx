@@ -3,6 +3,7 @@ import type { DiagramType } from '@collabboard/shared';
 import { aiApi } from '../../lib/api/ai.api';
 import { useBoardStore } from '../../stores/boardStore';
 import { layoutDiagram } from '../../utils/diagramLayout';
+import { canEditBoard } from '../../utils/permissions';
 import { Button } from '../common/Button';
 import './AIAssistantPanel.css';
 
@@ -18,7 +19,9 @@ interface QaEntry {
 
 export function AIAssistantPanel({ boardId, onClose }: AIAssistantPanelProps) {
   const viewport = useBoardStore((s) => s.viewport);
+  const role = useBoardStore((s) => s.role);
   const createObjectsBatch = useBoardStore((s) => s.createObjectsBatch);
+  const canEdit = canEditBoard(role);
 
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
@@ -153,25 +156,27 @@ export function AIAssistantPanel({ boardId, onClose }: AIAssistantPanelProps) {
           )}
         </section>
 
-        <section className="ai-section">
-          <h3>Generate a diagram</h3>
-          <textarea
-            placeholder="e.g. Flowchart for a customer onboarding process"
-            value={diagramPrompt}
-            onChange={(e) => setDiagramPrompt(e.target.value)}
-            rows={3}
-          />
-          <div className="ai-input-row">
-            <select value={diagramType} onChange={(e) => setDiagramType(e.target.value as DiagramType)}>
-              <option value="flowchart">Flowchart</option>
-              <option value="mindmap">Mind map</option>
-              <option value="process">Process diagram</option>
-            </select>
-            <Button size="sm" onClick={handleGenerateDiagram} disabled={generating || !diagramPrompt.trim()}>
-              {generating ? 'Generating…' : 'Generate on canvas'}
-            </Button>
-          </div>
-        </section>
+        {canEdit && (
+          <section className="ai-section">
+            <h3>Generate a diagram</h3>
+            <textarea
+              placeholder="e.g. Flowchart for a customer onboarding process"
+              value={diagramPrompt}
+              onChange={(e) => setDiagramPrompt(e.target.value)}
+              rows={3}
+            />
+            <div className="ai-input-row">
+              <select value={diagramType} onChange={(e) => setDiagramType(e.target.value as DiagramType)}>
+                <option value="flowchart">Flowchart</option>
+                <option value="mindmap">Mind map</option>
+                <option value="process">Process diagram</option>
+              </select>
+              <Button size="sm" onClick={handleGenerateDiagram} disabled={generating || !diagramPrompt.trim()}>
+                {generating ? 'Generating…' : 'Generate on canvas'}
+              </Button>
+            </div>
+          </section>
+        )}
       </div>
     </aside>
   );

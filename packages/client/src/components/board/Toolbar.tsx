@@ -1,12 +1,15 @@
 import { useRef } from 'react';
 import { useBoardStore } from '../../stores/boardStore';
-import { clampScale } from '../../utils/coords';
+import { canEditBoard } from '../../utils/permissions';
 import type { ToolType } from '../../types/tool';
 import './Toolbar.css';
 
-const TOOLS: { type: ToolType; icon: string; label: string }[] = [
+const VIEW_TOOLS: { type: ToolType; icon: string; label: string }[] = [
   { type: 'select', icon: '↖', label: 'Select (V)' },
   { type: 'pan', icon: '✋', label: 'Pan (H)' },
+];
+
+const EDIT_TOOLS: { type: ToolType; icon: string; label: string }[] = [
   { type: 'pen', icon: '✎', label: 'Pen (P)' },
   { type: 'rectangle', icon: '▭', label: 'Rectangle (R)' },
   { type: 'ellipse', icon: '◯', label: 'Ellipse (O)' },
@@ -18,13 +21,12 @@ const TOOLS: { type: ToolType; icon: string; label: string }[] = [
 
 export function Toolbar() {
   const tool = useBoardStore((s) => s.tool);
+  const role = useBoardStore((s) => s.role);
   const setTool = useBoardStore((s) => s.setTool);
   const viewport = useBoardStore((s) => s.viewport);
-  const setViewport = useBoardStore((s) => s.setViewport);
   const createObject = useBoardStore((s) => s.createObject);
-  const undo = useBoardStore((s) => s.undo);
-  const redo = useBoardStore((s) => s.redo);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const canEdit = canEditBoard(role);
 
   function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -59,7 +61,7 @@ export function Toolbar() {
 
   return (
     <div className="toolbar">
-      {TOOLS.map((t) => (
+      {VIEW_TOOLS.map((t) => (
         <button
           key={t.type}
           className={`toolbar-btn ${tool === t.type ? 'active' : ''}`}
@@ -70,40 +72,25 @@ export function Toolbar() {
         </button>
       ))}
 
-      <button className="toolbar-btn" title="Upload image" onClick={() => fileInputRef.current?.click()}>
-        🖼
-      </button>
-      <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleImageFile} />
+      {canEdit && (
+        <>
+          {EDIT_TOOLS.map((t) => (
+            <button
+              key={t.type}
+              className={`toolbar-btn ${tool === t.type ? 'active' : ''}`}
+              title={t.label}
+              onClick={() => setTool(t.type)}
+            >
+              {t.icon}
+            </button>
+          ))}
 
-      <div className="toolbar-divider" />
-
-      <button className="toolbar-btn" title="Undo (Ctrl+Z)" onClick={undo}>
-        ↺
-      </button>
-      <button className="toolbar-btn" title="Redo (Ctrl+Shift+Z)" onClick={redo}>
-        ↻
-      </button>
-
-      <div className="toolbar-divider" />
-
-      <button
-        className="toolbar-btn"
-        title="Zoom out"
-        onClick={() => setViewport({ scale: clampScale(viewport.scale * 0.85) })}
-      >
-        −
-      </button>
-      <span className="toolbar-zoom-label">{Math.round(viewport.scale * 100)}%</span>
-      <button
-        className="toolbar-btn"
-        title="Zoom in"
-        onClick={() => setViewport({ scale: clampScale(viewport.scale * 1.15) })}
-      >
-        +
-      </button>
-      <button className="toolbar-btn" title="Reset view" onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}>
-        ⤢
-      </button>
+          <button className="toolbar-btn" title="Upload image" onClick={() => fileInputRef.current?.click()}>
+            🖼
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleImageFile} />
+        </>
+      )}
     </div>
   );
 }

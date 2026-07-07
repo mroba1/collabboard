@@ -20,10 +20,25 @@ export function TextEditOverlay({ object, viewport, onChange, onClose }: TextEdi
   const [value, setValue] = useState(object.text);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  valueRef.current = value;
+  onChangeRef.current = onChange;
 
   useEffect(() => {
     textareaRef.current?.focus();
     textareaRef.current?.select();
+  }, []);
+
+  useEffect(() => {
+    // Flush any pending debounced edit if this unmounts without going through
+    // commitAndClose (e.g. navigating away mid-edit) so keystrokes aren't lost.
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        onChangeRef.current(valueRef.current);
+      }
+    };
   }, []);
 
   const screenPos = worldToScreen({ x: object.x, y: object.y }, viewport);

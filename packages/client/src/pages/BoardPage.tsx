@@ -7,11 +7,13 @@ import { useBoardStore } from '../stores/boardStore';
 import { useBoardSocket } from '../hooks/useBoardSocket';
 import { BoardTopBar } from '../components/board/BoardTopBar';
 import { Toolbar } from '../components/board/Toolbar';
+import { ZoomControls } from '../components/board/ZoomControls';
 import { Canvas } from '../components/board/Canvas';
 import { Cursors } from '../components/board/Cursors';
 import { AIAssistantPanel } from '../components/board/AIAssistantPanel';
 import { ShareModal } from '../components/board/ShareModal';
 import { FullScreenSpinner } from '../components/common/FullScreenSpinner';
+import { ErrorToast } from '../components/common/ErrorToast';
 import './BoardPage.css';
 
 export function BoardPage() {
@@ -24,7 +26,10 @@ export function BoardPage() {
   const [shareOpen, setShareOpen] = useState(false);
 
   const initBoard = useBoardStore((s) => s.initBoard);
+  const setRole = useBoardStore((s) => s.setRole);
   const reset = useBoardStore((s) => s.reset);
+  const lastError = useBoardStore((s) => s.lastError);
+  const setError = useBoardStore((s) => s.setError);
 
   useEffect(() => {
     if (!boardId) return;
@@ -37,6 +42,7 @@ export function BoardPage() {
         if (cancelled) return;
         setBoard(summary);
         initBoard(boardId as string, objects);
+        setRole(summary.role);
       } catch {
         if (!cancelled) setNotFound(true);
       } finally {
@@ -49,7 +55,7 @@ export function BoardPage() {
       cancelled = true;
       reset();
     };
-  }, [boardId, initBoard, reset]);
+  }, [boardId, initBoard, setRole, reset]);
 
   useBoardSocket(loading ? undefined : boardId);
 
@@ -77,6 +83,8 @@ export function BoardPage() {
           <Canvas boardId={boardId} stageRef={stageRef} />
           <Cursors />
           <Toolbar />
+          <ZoomControls />
+          {lastError && <ErrorToast message={lastError} onDismiss={() => setError(null)} />}
         </div>
 
         {aiOpen && <AIAssistantPanel boardId={boardId} onClose={() => setAiOpen(false)} />}

@@ -1,0 +1,32 @@
+.error-toast {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-danger);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 50;
+  max-width: min(90vw, 480px);
+}
+
+.error-toast button {
+  border: none;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.error-toast button:hover {
+  opacity: 1;
+}

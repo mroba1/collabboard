@@ -69,6 +69,49 @@
   margin-left: 0;
 }
 
+.board-history-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 4px;
+  border-right: 1px solid var(--color-border);
+  padding-right: 10px;
+}
+
+.board-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.board-icon-btn:hover:not(:disabled) {
+  background: var(--color-surface-alt);
+}
+
+.board-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.board-role-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
 .board-theme-toggle {
   width: 32px;
   height: 32px;

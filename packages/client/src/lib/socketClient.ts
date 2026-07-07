@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@collabboard/shared';
-import { getAccessToken } from './apiClient';
+import { getAccessToken, tryRefresh } from './apiClient';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 
@@ -14,6 +14,16 @@ export function getSocket(): CollabSocket {
       autoConnect: false,
       auth: (cb) => cb({ token: getAccessToken() }),
       withCredentials: true,
+    });
+
+    // The access token (15min lifetime) can easily expire while a tab stays
+    // open. If a (re)connect attempt is rejected for auth, refresh the token
+    // over REST and retry -- otherwise the socket would keep failing forever
+    // with the same stale token.
+    socket.on('connect_error', () => {
+      void tryRefresh().then((refreshed) => {
+        if (refreshed) socket?.connect();
+      });
     });
   }
   return socket;

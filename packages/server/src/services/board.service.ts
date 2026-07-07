@@ -101,7 +101,11 @@ export async function updateBoard(
   boardId: string,
   updates: { name?: string; isFavorite?: boolean }
 ): Promise<BoardSummary> {
-  const membership = await assertMembership(userId, boardId, 'EDITOR');
+  // Favoriting is a personal preference, not a board-content edit, so any
+  // member (including viewers) may toggle it. Renaming actually changes the
+  // shared board and requires editor+.
+  const requiredRole = updates.name !== undefined ? 'EDITOR' : 'VIEWER';
+  const membership = await assertMembership(userId, boardId, requiredRole);
 
   if (updates.name !== undefined) {
     await prisma.board.update({ where: { id: boardId }, data: { name: updates.name } });

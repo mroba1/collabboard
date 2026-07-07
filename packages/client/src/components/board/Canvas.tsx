@@ -10,6 +10,7 @@ import { SHAPE_FILL, SHAPE_STROKE, inkColor, randomStickyColor } from '../../uti
 import { throttle } from '../../utils/throttle';
 import { TextEditOverlay } from './TextEditOverlay';
 import { useTheme } from '../../theme/ThemeProvider';
+import { canEditBoard } from '../../utils/permissions';
 import './Canvas.css';
 
 interface CanvasProps {
@@ -41,12 +42,14 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
   const selectedIds = useBoardStore((s) => s.selectedIds);
   const viewport = useBoardStore((s) => s.viewport);
   const tool = useBoardStore((s) => s.tool);
+  const role = useBoardStore((s) => s.role);
   const setTool = useBoardStore((s) => s.setTool);
   const setViewport = useBoardStore((s) => s.setViewport);
   const setSelected = useBoardStore((s) => s.setSelected);
   const createObject = useBoardStore((s) => s.createObject);
   const updateObject = useBoardStore((s) => s.updateObject);
   const deleteObject = useBoardStore((s) => s.deleteObject);
+  const canEdit = canEditBoard(role);
 
   const objectList = useMemo(() => Object.values(objects).sort((a, b) => a.zIndex - b.zIndex), [objects]);
 
@@ -66,15 +69,21 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
     const transformer = transformerRef.current;
     if (!transformer) return;
     const nodes = selectedIds.map((id) => nodeRegistry.current.get(id)).filter(Boolean) as Konva.Group[];
-    transformer.nodes(tool === 'select' ? nodes : []);
+    transformer.nodes(tool === 'select' && canEdit ? nodes : []);
     transformer.getLayer()?.batchDraw();
-  }, [selectedIds, tool, objectList.length]);
+  }, [selectedIds, tool, canEdit, objectList.length]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.code === 'Space') spaceHeld.current = true;
       const isTypingTarget = (e.target as HTMLElement)?.tagName === 'TEXTAREA' || (e.target as HTMLElement)?.tagName === 'INPUT';
       if (isTypingTarget) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        useBoardStore.getState().selectAll();
+        return;
+      }
+      if (!canEdit) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
         e.preventDefault();
         for (const id of selectedIds) deleteObject(id);
@@ -98,7 +107,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [selectedIds, deleteObject]);
+  }, [selectedIds, deleteObject, canEdit]);
 
   const emitCursorThrottled = useMemo(
     () => throttle((x: number, y: number) => emitCursorMove(boardId, x, y), 40),
@@ -152,6 +161,8 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
       panLast.current = screenPos;
       return;
     }
+
+    if (!canEdit && tool !== 'select') return;
 
     if (tool === 'select') {
       if (clickedOnEmpty) {
@@ -371,10 +382,12 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
               object={object}
               isSelected={selectedIds.includes(object.id)}
               tool={tool}
+              canEdit={canEdit}
               onSelect={() => setSelected([object.id])}
               onDragEnd={(x, y) => updateObject(object.id, { x, y })}
               onTransformEnd={(attrs) => updateObject(object.id, attrs)}
               onDblClick={() => {
+                if (!canEdit) return;
                 if (object.type === 'text' || object.type === 'sticky') {
                   setSelected([object.id]);
                   setEditingId(object.id);

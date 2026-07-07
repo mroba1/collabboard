@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
-import type { BoardObject, CreateBoardObjectInput, CursorPayload, PresenceUser } from '@collabboard/shared';
+import type { BoardObject, BoardRole, CreateBoardObjectInput, CursorPayload, PresenceUser } from '@collabboard/shared';
 import { getSocket } from '../lib/socketClient';
 import type { ToolType } from '../types/tool';
 
@@ -18,6 +18,7 @@ interface HistoryEntry {
 
 interface BoardState {
   boardId: string | null;
+  role: BoardRole | null;
   objects: Record<string, BoardObject>;
   selectedIds: string[];
   viewport: Viewport;
@@ -27,8 +28,11 @@ interface BoardState {
   past: HistoryEntry[];
   future: HistoryEntry[];
   pendingOps: Set<string>;
+  lastError: string | null;
 
   initBoard: (boardId: string, objects: BoardObject[]) => void;
+  setRole: (role: BoardRole) => void;
+  setError: (message: string | null) => void;
   reset: () => void;
   setTool: (tool: ToolType) => void;
   setViewport: (viewport: Partial<Viewport>) => void;
@@ -39,6 +43,8 @@ interface BoardState {
   updateObject: (id: string, changes: Partial<BoardObject>, recordHistory?: boolean) => void;
   deleteObject: (id: string) => void;
   deleteSelected: () => void;
+  clearBoard: () => void;
+  selectAll: () => void;
 
   applyRemoteCreated: (object: BoardObject, userId: string, clientOpId: string) => void;
   applyRemoteUpdated: (id: string, changes: Partial<BoardObject>, userId: string, clientOpId: string) => void;
@@ -62,6 +68,7 @@ function nextZIndex(objects: Record<string, BoardObject>): number {
 
 export const useBoardStore = create<BoardState>((set, get) => ({
   boardId: null,
+  role: null,
   objects: {},
   selectedIds: [],
   viewport: { x: 0, y: 0, scale: 1 },
@@ -71,6 +78,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   past: [],
   future: [],
   pendingOps: new Set(),
+  lastError: null,
 
   initBoard: (boardId, objects) => {
     const map: Record<string, BoardObject> = {};
@@ -78,7 +86,12 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     set({ boardId, objects: map, selectedIds: [], past: [], future: [], cursors: {}, members: [] });
   },
 
-  reset: () => set({ boardId: null, objects: {}, selectedIds: [], past: [], future: [], cursors: {}, members: [] }),
+  setRole: (role) => set({ role }),
+
+  setError: (message) => set({ lastError: message }),
+
+  reset: () =>
+    set({ boardId: null, role: null, objects: {}, selectedIds: [], past: [], future: [], cursors: {}, members: [] }),
 
   setTool: (tool) => set({ tool, selectedIds: tool === 'select' ? get().selectedIds : [] }),
 
@@ -193,6 +206,13 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     const { selectedIds, deleteObject } = get();
     for (const id of selectedIds) deleteObject(id);
   },
+
+  clearBoard: () => {
+    const { objects, deleteObject } = get();
+    for (const id of Object.keys(objects)) deleteObject(id);
+  },
+
+  selectAll: () => set((s) => ({ selectedIds: Object.keys(s.objects), tool: 'select' })),
 
   applyRemoteCreated: (object, _userId, clientOpId) => {
     const state = get();

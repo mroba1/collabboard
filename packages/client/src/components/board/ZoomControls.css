@@ -1,25 +1,21 @@
-.toolbar {
+.zoom-controls {
   position: absolute;
-  left: 50%;
-  bottom: 20px;
-  transform: translateX(-50%);
+  right: 16px;
+  bottom: 16px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: 6px;
   z-index: 20;
-  max-width: calc(100vw - 32px);
-  overflow-x: auto;
 }
 
-.toolbar-btn {
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
+.zoom-btn {
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
@@ -29,26 +25,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
-.toolbar-btn:hover {
+.zoom-btn:hover {
   background: var(--color-surface-alt);
 }
 
-.toolbar-btn.active {
-  background: var(--color-primary);
-  color: #fff;
+.zoom-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  width: 42px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 @media (max-width: 640px) {
-  .toolbar {
-    gap: 2px;
-    padding: 4px;
-    bottom: 12px;
-  }
-  .toolbar-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
+  .zoom-controls {
+    right: 10px;
+    bottom: 10px;
   }
 }
