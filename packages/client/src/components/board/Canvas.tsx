@@ -36,6 +36,12 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const panLast = useRef<Point | null>(null);
   const spaceHeld = useRef(false);
+  const pinchRef = useRef<{
+    startDistance: number;
+    startScale: number;
+    startWorldX: number;
+    startWorldY: number;
+  } | null>(null);
   const { resolvedMode } = useTheme();
 
   const objects = useBoardStore((s) => s.objects);
@@ -121,6 +127,18 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
     return screenToWorld(pos, viewport);
   }
 
+  function getTouchDistance(t1: Touch, t2: Touch): number {
+    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+  }
+
+  function getTouchMidpointRelative(t1: Touch, t2: Touch): Point {
+    const rect = containerRef.current?.getBoundingClientRect();
+    return {
+      x: (t1.clientX + t2.clientX) / 2 - (rect?.left ?? 0),
+      y: (t1.clientY + t2.clientY) / 2 - (rect?.top ?? 0),
+    };
+  }
+
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
@@ -152,6 +170,26 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
   function handleMouseDown(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     const stage = stageRef.current;
     if (!stage) return;
+
+    if ('touches' in e.evt && e.evt.touches.length === 2) {
+      const [t1, t2] = [e.evt.touches[0], e.evt.touches[1]];
+      if (t1 && t2) {
+        const midpoint = getTouchMidpointRelative(t1, t2);
+        const worldPoint = screenToWorld(midpoint, viewport);
+        pinchRef.current = {
+          startDistance: getTouchDistance(t1, t2),
+          startScale: viewport.scale,
+          startWorldX: worldPoint.x,
+          startWorldY: worldPoint.y,
+        };
+      }
+      setIsPanning(false);
+      setDrawStart(null);
+      setPreview(null);
+      setMarquee(null);
+      return;
+    }
+
     const clickedOnEmpty = e.target === stage;
     const world = pointerWorldPos();
     const screenPos = stage.getPointerPosition() ?? { x: 0, y: 0 };
@@ -228,9 +266,26 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
     }
   }
 
-  function handleMouseMove() {
+  function handleMouseMove(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     const stage = stageRef.current;
     if (!stage) return;
+
+    if ('touches' in e.evt && e.evt.touches.length === 2 && pinchRef.current) {
+      const [t1, t2] = [e.evt.touches[0], e.evt.touches[1]];
+      if (t1 && t2) {
+        const { startDistance, startScale, startWorldX, startWorldY } = pinchRef.current;
+        const distance = getTouchDistance(t1, t2);
+        const newScale = clampScale(startScale * (distance / startDistance));
+        const midpoint = getTouchMidpointRelative(t1, t2);
+        setViewport({
+          scale: newScale,
+          x: midpoint.x - startWorldX * newScale,
+          y: midpoint.y - startWorldY * newScale,
+        });
+      }
+      return;
+    }
+
     const screenPos = stage.getPointerPosition();
     if (!screenPos) return;
     const world = screenToWorld(screenPos, viewport);
@@ -272,7 +327,12 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
     }
   }
 
-  function handleMouseUp() {
+  function handleMouseUp(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
+    if ('touches' in e.evt && e.evt.touches.length < 2 && pinchRef.current) {
+      pinchRef.current = null;
+      return;
+    }
+
     if (isPanning) {
       setIsPanning(false);
       panLast.current = null;
