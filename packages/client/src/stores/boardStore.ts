@@ -72,7 +72,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   objects: {},
   selectedIds: [],
   viewport: { x: 0, y: 0, scale: 1 },
-  tool: 'select',
+  tool: 'pan',
   members: [],
   cursors: {},
   past: [],

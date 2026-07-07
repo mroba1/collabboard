@@ -13,11 +13,17 @@ interface TextEditOverlayProps {
   object: Extract<BoardObject, { type: 'text' | 'sticky' }>;
   viewport: Viewport;
   onChange: (text: string) => void;
+  onFontSizeChange?: (fontSize: number) => void;
   onClose: () => void;
 }
 
-export function TextEditOverlay({ object, viewport, onChange, onClose }: TextEditOverlayProps) {
+const MIN_FONT_SIZE = 12;
+const MAX_FONT_SIZE = 96;
+const FONT_SIZE_STEP = 4;
+
+export function TextEditOverlay({ object, viewport, onChange, onFontSizeChange, onClose }: TextEditOverlayProps) {
   const [value, setValue] = useState(object.text);
+  const [fontSize, setFontSize] = useState(object.type === 'text' ? object.fontSize : 16);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const valueRef = useRef(value);
@@ -56,29 +62,53 @@ export function TextEditOverlay({ object, viewport, onChange, onClose }: TextEdi
     onClose();
   }
 
+  function adjustFontSize(delta: number) {
+    const next = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, fontSize + delta));
+    setFontSize(next);
+    onFontSizeChange?.(next);
+    textareaRef.current?.focus();
+  }
+
   return (
-    <textarea
-      ref={textareaRef}
-      className="text-edit-overlay"
-      style={{
-        left: screenPos.x,
-        top: screenPos.y,
-        width: object.width * viewport.scale,
-        height: object.height * viewport.scale,
-        fontSize: (isSticky ? 16 : object.fontSize) * viewport.scale,
-        padding: isSticky ? 10 * viewport.scale : 0,
-        background: isSticky ? object.color : 'transparent',
-      }}
-      value={value}
-      onChange={(e) => handleChange(e.target.value)}
-      onBlur={commitAndClose}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') commitAndClose();
-        if (e.key === 'Enter' && !e.shiftKey && !isSticky) {
-          e.preventDefault();
-          commitAndClose();
-        }
-      }}
-    />
+    <>
+      {!isSticky && (
+        <div
+          className="text-size-controls"
+          style={{ left: screenPos.x, top: screenPos.y - 44 }}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <button onClick={() => adjustFontSize(-FONT_SIZE_STEP)} aria-label="Decrease text size">
+            A−
+          </button>
+          <span>{fontSize}</span>
+          <button onClick={() => adjustFontSize(FONT_SIZE_STEP)} aria-label="Increase text size">
+            A+
+          </button>
+        </div>
+      )}
+      <textarea
+        ref={textareaRef}
+        className="text-edit-overlay"
+        style={{
+          left: screenPos.x,
+          top: screenPos.y,
+          width: object.width * viewport.scale,
+          height: object.height * viewport.scale,
+          fontSize: (isSticky ? 16 : fontSize) * viewport.scale,
+          padding: isSticky ? 10 * viewport.scale : 0,
+          background: isSticky ? object.color : 'transparent',
+        }}
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={commitAndClose}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') commitAndClose();
+          if (e.key === 'Enter' && !e.shiftKey && !isSticky) {
+            e.preventDefault();
+            commitAndClose();
+          }
+        }}
+      />
+    </>
   );
 }

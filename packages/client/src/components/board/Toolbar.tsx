@@ -5,8 +5,8 @@ import type { ToolType } from '../../types/tool';
 import './Toolbar.css';
 
 const VIEW_TOOLS: { type: ToolType; icon: string; label: string }[] = [
-  { type: 'select', icon: '↖', label: 'Select (V)' },
-  { type: 'pan', icon: '✋', label: 'Pan (H)' },
+  { type: 'pan', icon: '✋', label: 'Move & tap to type (H)' },
+  { type: 'select', icon: '↖', label: 'Select / box-select (V)' },
 ];
 
 const EDIT_TOOLS: { type: ToolType; icon: string; label: string }[] = [
@@ -14,7 +14,6 @@ const EDIT_TOOLS: { type: ToolType; icon: string; label: string }[] = [
   { type: 'rectangle', icon: '▭', label: 'Rectangle (R)' },
   { type: 'ellipse', icon: '◯', label: 'Ellipse (O)' },
   { type: 'arrow', icon: '↗', label: 'Arrow (A)' },
-  { type: 'text', icon: 'T', label: 'Text (T)' },
   { type: 'sticky', icon: '▤', label: 'Sticky note (S)' },
   { type: 'eraser', icon: '⌫', label: 'Eraser (E)' },
 ];

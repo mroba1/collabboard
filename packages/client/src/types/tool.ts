@@ -5,7 +5,6 @@ export type ToolType =
   | 'rectangle'
   | 'ellipse'
   | 'arrow'
-  | 'text'
   | 'sticky'
   | 'image'
   | 'eraser';

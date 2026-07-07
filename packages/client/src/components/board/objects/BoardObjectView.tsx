@@ -40,7 +40,8 @@ export function BoardObjectView({
   onDblClick,
   registerNode,
 }: BoardObjectViewProps) {
-  const interactive = tool === 'select' || tool === 'eraser';
+  const interactive = tool === 'select' || tool === 'pan' || tool === 'eraser';
+  const canDrag = tool === 'select' || tool === 'pan';
   const canResize = canEdit && object.type !== 'path' && object.type !== 'arrow';
 
   function handleTransformEnd(e: { target: Konva.Node }) {
@@ -60,7 +61,7 @@ export function BoardObjectView({
       x={object.x}
       y={object.y}
       rotation={object.rotation}
-      draggable={interactive && tool === 'select' && canEdit}
+      draggable={interactive && canDrag && canEdit}
       listening={interactive}
       opacity={object.opacity ?? 1}
       ref={(node) => registerNode(object.id, node)}

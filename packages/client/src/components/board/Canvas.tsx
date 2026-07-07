@@ -23,6 +23,9 @@ type DrawPreview =
   | { kind: 'arrow'; points: number[] }
   | { kind: 'path'; points: number[] };
 
+const TAP_MOVE_THRESHOLD_PX = 6;
+const DEFAULT_TEXT_FONT_SIZE = 32;
+
 export function Canvas({ boardId, stageRef }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeRegistry = useRef(new Map<string, Konva.Group>());
@@ -35,6 +38,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
   const [isPanning, setIsPanning] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const panLast = useRef<Point | null>(null);
+  const tapStart = useRef<Point | null>(null);
   const spaceHeld = useRef(false);
   const pinchRef = useRef<{
     startDistance: number;
@@ -75,7 +79,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
     const transformer = transformerRef.current;
     if (!transformer) return;
     const nodes = selectedIds.map((id) => nodeRegistry.current.get(id)).filter(Boolean) as Konva.Group[];
-    transformer.nodes(tool === 'select' && canEdit ? nodes : []);
+    transformer.nodes((tool === 'select' || tool === 'pan') && canEdit ? nodes : []);
     transformer.getLayer()?.batchDraw();
   }, [selectedIds, tool, canEdit, objectList.length]);
 
@@ -194,9 +198,20 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
     const world = pointerWorldPos();
     const screenPos = stage.getPointerPosition() ?? { x: 0, y: 0 };
 
-    if (tool === 'pan' || spaceHeld.current || (e.evt as MouseEvent).button === 1) {
+    if (spaceHeld.current || (e.evt as MouseEvent).button === 1) {
       setIsPanning(true);
       panLast.current = screenPos;
+      return;
+    }
+
+    if (tool === 'pan') {
+      if (clickedOnEmpty) {
+        setIsPanning(true);
+        panLast.current = screenPos;
+        tapStart.current = screenPos;
+      }
+      // Clicking directly on an object is handled by that object's own
+      // select/drag handlers (see BoardObjectView) -- nothing to do here.
       return;
     }
 
@@ -213,24 +228,6 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
 
     if (tool === 'eraser') return;
 
-    if (tool === 'text') {
-      const obj = createObject({
-        type: 'text',
-        x: world.x,
-        y: world.y,
-        width: 220,
-        height: 40,
-        rotation: 0,
-        text: 'Double-click to edit',
-        fontSize: 22,
-        fill: inkColor(resolvedMode),
-      } as CreateBoardObjectInput);
-      setSelected([obj.id]);
-      setEditingId(obj.id);
-      setTool('select');
-      return;
-    }
-
     if (tool === 'sticky') {
       const obj = createObject({
         type: 'sticky',
@@ -244,7 +241,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
       } as CreateBoardObjectInput);
       setSelected([obj.id]);
       setEditingId(obj.id);
-      setTool('select');
+      setTool('pan');
       return;
     }
 
@@ -336,6 +333,29 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
     if (isPanning) {
       setIsPanning(false);
       panLast.current = null;
+
+      if (tool === 'pan' && tapStart.current && canEdit) {
+        const stage = stageRef.current;
+        const upPos = stage?.getPointerPosition();
+        const start = tapStart.current;
+        if (upPos && Math.hypot(upPos.x - start.x, upPos.y - start.y) < TAP_MOVE_THRESHOLD_PX) {
+          const world = screenToWorld(start, viewport);
+          const obj = createObject({
+            type: 'text',
+            x: world.x,
+            y: world.y,
+            width: 300,
+            height: 60,
+            rotation: 0,
+            text: '',
+            fontSize: DEFAULT_TEXT_FONT_SIZE,
+            fill: inkColor(resolvedMode),
+          } as CreateBoardObjectInput);
+          setSelected([obj.id]);
+          setEditingId(obj.id);
+        }
+      }
+      tapStart.current = null;
       return;
     }
 
@@ -501,7 +521,14 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
         <TextEditOverlay
           object={editingObject}
           viewport={viewport}
-          onChange={(text) => updateObject(editingObject.id, { text } as Partial<BoardObject>)}
+          onChange={(text) => {
+            if (editingObject.type === 'text' && text.trim() === '') {
+              deleteObject(editingObject.id);
+            } else {
+              updateObject(editingObject.id, { text } as Partial<BoardObject>);
+            }
+          }}
+          onFontSizeChange={(fontSize) => updateObject(editingObject.id, { fontSize } as Partial<BoardObject>)}
           onClose={() => setEditingId(null)}
         />
       )}
