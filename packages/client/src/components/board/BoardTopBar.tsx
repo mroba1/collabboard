@@ -105,8 +105,8 @@ export function BoardTopBar({ board, stageRef, onRename, onShareClick, aiOpen, o
         )}
         {!canEdit && <span className="board-role-badge">View only</span>}
         <ExportMenu stageRef={stageRef} boardName={board.name} />
-        <Button size="sm" variant={aiOpen ? 'primary' : 'secondary'} onClick={onToggleAI}>
-          ✨ AI Assistant
+        <Button size="sm" variant={aiOpen ? 'primary' : 'secondary'} onClick={onToggleAI} title="AI Assistant">
+          ✨ <span className="btn-label-text">AI Assistant</span>
         </Button>
         <button className="board-theme-toggle" onClick={toggle} title="Toggle theme">
           {resolvedMode === 'dark' ? '☀' : '☾'}

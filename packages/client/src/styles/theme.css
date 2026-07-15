@@ -90,6 +90,19 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
+  /* Safety net: no single overflowing element should ever cause the whole
+     page to scroll horizontally on mobile. Components that legitimately
+     need horizontal scroll (toolbars, etc.) contain it with their own
+     overflow-x: auto rather than relying on the page. */
+  overflow-x: hidden;
+}
+
+/* Utility: hide a button's text label on narrow screens, keeping its icon.
+   Used by toolbar/topbar buttons that would otherwise overflow on mobile. */
+@media (max-width: 640px) {
+  .btn-label-text {
+    display: none;
+  }
 }
 
 button,

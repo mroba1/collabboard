@@ -90,8 +90,8 @@ export function ExportMenu({ stageRef, boardName }: ExportMenuProps) {
 
   return (
     <div className="export-menu">
-      <button className="export-trigger" onClick={() => setOpen((o) => !o)}>
-        Export ▾
+      <button className="export-trigger" onClick={() => setOpen((o) => !o)} title="Export">
+        ⬇ <span className="btn-label-text">Export</span> ▾
       </button>
       {open && (
         <>

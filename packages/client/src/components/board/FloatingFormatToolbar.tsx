@@ -28,7 +28,12 @@ export function FloatingFormatToolbar({ object, viewport, onChange }: FloatingFo
   const currentColor = isSticky ? (object.textColor ?? '#1f2937') : (object.fill ?? '#111827');
 
   const anchor = worldToScreen({ x: object.x + object.width / 2, y: object.y }, viewport);
-  const left = anchor.x;
+  // Clamp so the toolbar (roughly 300px wide, centered on `left` via
+  // translateX(-50%)) can't render off-screen when the object is near the
+  // canvas edge -- a common case on narrow phone screens.
+  const halfWidth = Math.min(150, typeof window !== 'undefined' ? window.innerWidth / 2 - 8 : 150);
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : anchor.x + halfWidth;
+  const left = Math.min(Math.max(anchor.x, halfWidth), viewportWidth - halfWidth);
   const top = Math.max(8, anchor.y - 52);
 
   return (

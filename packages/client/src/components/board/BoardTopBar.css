@@ -8,6 +8,7 @@
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   gap: 12px;
+  min-width: 0;
 }
 
 .board-topbar-left {
@@ -15,6 +16,7 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
+  flex-shrink: 1;
 }
 
 .board-back {
@@ -53,6 +55,18 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.board-topbar-right::-webkit-scrollbar {
+  display: none;
+}
+
+.board-topbar-right > * {
   flex-shrink: 0;
 }
 
@@ -123,10 +137,26 @@
 
 @media (max-width: 640px) {
   .board-topbar {
-    padding: 0 10px;
+    padding: 0 8px;
     gap: 6px;
+  }
+  .board-topbar-left {
+    gap: 8px;
+  }
+  .board-name {
+    max-width: 38vw;
   }
   .board-presence {
     display: none;
+  }
+  .board-topbar-right {
+    gap: 6px;
+  }
+  .board-history-controls {
+    margin-right: 0;
+    padding-right: 6px;
+  }
+  .board-role-badge {
+    padding: 4px 8px;
   }
 }
