@@ -9,6 +9,7 @@ import { screenToWorld, clampScale, rectsIntersect, type Point } from '../../uti
 import { SHAPE_FILL, SHAPE_STROKE, inkColor, randomStickyColor } from '../../utils/objectDefaults';
 import { throttle } from '../../utils/throttle';
 import { TextEditOverlay } from './TextEditOverlay';
+import { FloatingFormatToolbar } from './FloatingFormatToolbar';
 import { useTheme } from '../../theme/ThemeProvider';
 import { canEditBoard } from '../../utils/permissions';
 import './Canvas.css';
@@ -434,6 +435,11 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
   }
 
   const editingObject = editingId ? objects[editingId] : null;
+  const selectedSingle = selectedIds.length === 1 ? objects[selectedIds[0] as string] : null;
+  const formatTarget =
+    canEdit && selectedSingle && (selectedSingle.type === 'text' || selectedSingle.type === 'sticky')
+      ? selectedSingle
+      : null;
 
   return (
     <div className="canvas-container" ref={containerRef}>
@@ -528,8 +534,15 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
               updateObject(editingObject.id, { text } as Partial<BoardObject>);
             }
           }}
-          onFontSizeChange={(fontSize) => updateObject(editingObject.id, { fontSize } as Partial<BoardObject>)}
           onClose={() => setEditingId(null)}
+        />
+      )}
+
+      {formatTarget && (
+        <FloatingFormatToolbar
+          object={formatTarget}
+          viewport={viewport}
+          onChange={(changes) => updateObject(formatTarget.id, changes as Partial<BoardObject>)}
         />
       )}
     </div>

@@ -29,6 +29,13 @@ function ImageContent({ src, width, height }: { src: string; width: number; heig
   return <KonvaImage image={img} width={width} height={height} listening={false} />;
 }
 
+function konvaFontStyle(bold?: boolean, italic?: boolean): string {
+  if (bold && italic) return 'italic bold';
+  if (bold) return 'bold';
+  if (italic) return 'italic';
+  return 'normal';
+}
+
 export function BoardObjectView({
   object,
   isSelected,
@@ -124,8 +131,11 @@ export function BoardObjectView({
           height={object.height}
           fontSize={object.fontSize}
           fontFamily={object.fontFamily ?? 'inherit'}
+          fontStyle={konvaFontStyle(object.bold, object.italic)}
+          textDecoration={object.underline ? 'underline' : ''}
           align={object.align ?? 'left'}
           fill={object.fill ?? '#111827'}
+          wrap="word"
         />
       )}
 
@@ -146,8 +156,11 @@ export function BoardObjectView({
             height={object.height - 20}
             x={10}
             y={10}
-            fontSize={16}
-            fill="#1f2937"
+            fontSize={object.fontSize ?? 16}
+            fontStyle={konvaFontStyle(object.bold, object.italic)}
+            textDecoration={object.underline ? 'underline' : ''}
+            align={object.align ?? 'left'}
+            fill={object.textColor ?? '#1f2937'}
             wrap="word"
           />
         </>

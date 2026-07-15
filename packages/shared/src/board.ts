@@ -53,12 +53,21 @@ export interface TextObject extends BoardObjectBase {
   fontSize: number;
   fontFamily?: string;
   align?: 'left' | 'center' | 'right';
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
 }
 
 export interface StickyObject extends BoardObjectBase {
   type: 'sticky';
   text: string;
   color: string;
+  fontSize?: number;
+  align?: 'left' | 'center' | 'right';
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  textColor?: string;
 }
 
 export interface ImageObject extends BoardObjectBase {
