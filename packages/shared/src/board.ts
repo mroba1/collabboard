@@ -5,7 +5,17 @@ export type BoardObjectType =
   | 'path'
   | 'text'
   | 'sticky'
-  | 'image';
+  | 'image'
+  | 'shape';
+
+// Polygon-family shapes rendered through one generic path (see ShapeObject)
+// instead of a dedicated object type per shape, so adding a new one is a
+// rendering-branch change, not a new type/migration every time.
+export type ShapeKind = 'triangle' | 'diamond' | 'pentagon' | 'hexagon' | 'star' | 'polygon';
+
+// Freehand/line-family stroke rendering variants, sharing one PathObject
+// shape so brush/highlighter/line are styling differences, not new types.
+export type PathVariant = 'pen' | 'brush' | 'highlighter' | 'line';
 
 export type BoardRole = 'OWNER' | 'EDITOR' | 'VIEWER';
 
@@ -40,11 +50,23 @@ export interface EllipseObject extends BoardObjectBase {
 export interface ArrowObject extends BoardObjectBase {
   type: 'arrow';
   points: number[];
+  curved?: boolean;
+  /** Object IDs this connector snaps to, if created with the Connector tool. Purely informational -- endpoints are baked into `points` at creation time and do not live-follow if the connected shapes move. */
+  connectorFrom?: string;
+  connectorTo?: string;
 }
 
 export interface PathObject extends BoardObjectBase {
   type: 'path';
   points: number[];
+  variant?: PathVariant;
+}
+
+export interface ShapeObject extends BoardObjectBase {
+  type: 'shape';
+  shapeKind: ShapeKind;
+  /** Number of sides for shapeKind: 'polygon' (default 5). Ignored otherwise. */
+  sides?: number;
 }
 
 export interface TextObject extends BoardObjectBase {
@@ -80,6 +102,7 @@ export type BoardObject =
   | EllipseObject
   | ArrowObject
   | PathObject
+  | ShapeObject
   | TextObject
   | StickyObject
   | ImageObject;

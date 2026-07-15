@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useBoardStore } from '../../stores/boardStore';
 import { canEditBoard } from '../../utils/permissions';
+import { MoreToolsMenu } from './MoreToolsMenu';
 import type { ToolType } from '../../types/tool';
 import './Toolbar.css';
 
@@ -88,6 +89,9 @@ export function Toolbar() {
             🖼
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleImageFile} />
+
+          <div className="toolbar-divider" />
+          <MoreToolsMenu tool={tool} onSelect={setTool} />
         </>
       )}
     </div>

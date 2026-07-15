@@ -1,7 +1,17 @@
-import { Group, Rect, Ellipse, Line, Arrow as KonvaArrow, Text as KonvaText, Image as KonvaImage } from 'react-konva';
+import {
+  Group,
+  Rect,
+  Ellipse,
+  Line,
+  Arrow as KonvaArrow,
+  Text as KonvaText,
+  Image as KonvaImage,
+  RegularPolygon,
+  Star,
+} from 'react-konva';
 import useImage from 'use-image';
 import type Konva from 'konva';
-import type { BoardObject } from '@collabboard/shared';
+import type { BoardObject, PathVariant, ShapeObject } from '@collabboard/shared';
 import type { ToolType } from '../../../types/tool';
 
 export interface TransformResult {
@@ -34,6 +44,69 @@ function konvaFontStyle(bold?: boolean, italic?: boolean): string {
   if (bold) return 'bold';
   if (italic) return 'italic';
   return 'normal';
+}
+
+function pathStrokeDefaults(variant?: PathVariant): { strokeWidth: number; opacity: number } {
+  switch (variant) {
+    case 'brush':
+      return { strokeWidth: 10, opacity: 1 };
+    case 'highlighter':
+      return { strokeWidth: 22, opacity: 0.35 };
+    default:
+      return { strokeWidth: 3, opacity: 1 };
+  }
+}
+
+function sidesForShape(shape: ShapeObject): number {
+  switch (shape.shapeKind) {
+    case 'triangle':
+      return 3;
+    case 'diamond':
+      return 4;
+    case 'pentagon':
+      return 5;
+    case 'hexagon':
+      return 6;
+    case 'polygon':
+      return Math.max(3, shape.sides ?? 5);
+    default:
+      return 5;
+  }
+}
+
+const SHAPE_BASE_RADIUS = 50;
+
+function ShapeContent({ shape }: { shape: ShapeObject }) {
+  const scaleX = shape.width / (SHAPE_BASE_RADIUS * 2);
+  const scaleY = shape.height / (SHAPE_BASE_RADIUS * 2);
+  const fill = shape.fill ?? '#ffffff';
+  const stroke = shape.stroke ?? '#334155';
+  const strokeWidth = shape.strokeWidth ?? 2;
+
+  return (
+    <Group x={shape.width / 2} y={shape.height / 2} scaleX={scaleX} scaleY={scaleY}>
+      {shape.shapeKind === 'star' ? (
+        <Star
+          numPoints={5}
+          innerRadius={SHAPE_BASE_RADIUS * 0.5}
+          outerRadius={SHAPE_BASE_RADIUS}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeScaleEnabled={false}
+        />
+      ) : (
+        <RegularPolygon
+          sides={sidesForShape(shape)}
+          radius={SHAPE_BASE_RADIUS}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeScaleEnabled={false}
+        />
+      )}
+    </Group>
+  );
 }
 
 export function BoardObjectView({
@@ -102,16 +175,23 @@ export function BoardObjectView({
         />
       )}
 
-      {object.type === 'path' && (
-        <Line
-          points={object.points}
-          stroke={object.stroke ?? '#111827'}
-          strokeWidth={object.strokeWidth ?? 3}
-          lineCap="round"
-          lineJoin="round"
-          tension={0.4}
-        />
-      )}
+      {object.type === 'path' &&
+        (() => {
+          const defaults = pathStrokeDefaults(object.variant);
+          return (
+            <Line
+              points={object.points}
+              stroke={object.stroke ?? '#111827'}
+              strokeWidth={object.strokeWidth ?? defaults.strokeWidth}
+              opacity={(object.opacity ?? 1) * defaults.opacity}
+              lineCap="round"
+              lineJoin="round"
+              tension={object.variant === 'line' ? 0 : 0.4}
+            />
+          );
+        })()}
+
+      {object.type === 'shape' && <ShapeContent shape={object} />}
 
       {object.type === 'arrow' && (
         <KonvaArrow
@@ -119,6 +199,7 @@ export function BoardObjectView({
           stroke={object.stroke ?? '#111827'}
           fill={object.stroke ?? '#111827'}
           strokeWidth={object.strokeWidth ?? 3}
+          tension={object.curved ? 0.5 : 0}
           pointerLength={12}
           pointerWidth={12}
         />

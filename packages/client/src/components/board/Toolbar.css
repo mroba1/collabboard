@@ -40,6 +40,14 @@
   color: #fff;
 }
 
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--color-border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
 @media (max-width: 640px) {
   .toolbar {
     gap: 2px;

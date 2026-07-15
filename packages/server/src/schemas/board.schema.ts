@@ -20,6 +20,7 @@ const boardObjectTypeSchema = z.enum([
   'ellipse',
   'arrow',
   'path',
+  'shape',
   'text',
   'sticky',
   'image',

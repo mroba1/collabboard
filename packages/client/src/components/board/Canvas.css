@@ -14,6 +14,12 @@
   display: block;
 }
 
+/* Default: any drawing/shape tool gets a crosshair cursor, so adding a new
+   tool doesn't require a CSS change here. Explicit overrides below. */
+.board-stage .konvajs-content {
+  cursor: crosshair;
+}
+
 .tool-select .konvajs-content {
   cursor: default;
 }
@@ -24,13 +30,4 @@
 
 .tool-eraser .konvajs-content {
   cursor: not-allowed;
-}
-
-.tool-rectangle .konvajs-content,
-.tool-ellipse .konvajs-content,
-.tool-arrow .konvajs-content,
-.tool-pen .konvajs-content,
-.tool-text .konvajs-content,
-.tool-sticky .konvajs-content {
-  cursor: crosshair;
 }

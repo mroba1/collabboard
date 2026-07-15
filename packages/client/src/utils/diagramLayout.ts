@@ -1,26 +1,10 @@
 import dagre from 'dagre';
 import type { AIDiagramEdge, AIDiagramNode, CreateBoardObjectInput, DiagramType } from '@collabboard/shared';
 import { randomStickyColor } from './objectDefaults';
+import { intersectRectBoundary } from './geometry';
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 110;
-
-function intersectRectBoundary(
-  cx: number,
-  cy: number,
-  halfW: number,
-  halfH: number,
-  towardX: number,
-  towardY: number
-): { x: number; y: number } {
-  const dx = towardX - cx;
-  const dy = towardY - cy;
-  if (dx === 0 && dy === 0) return { x: cx, y: cy };
-  const scaleX = dx !== 0 ? halfW / Math.abs(dx) : Infinity;
-  const scaleY = dy !== 0 ? halfH / Math.abs(dy) : Infinity;
-  const t = Math.min(scaleX, scaleY);
-  return { x: cx + dx * t, y: cy + dy * t };
-}
 
 export function layoutDiagram(
   nodes: AIDiagramNode[],

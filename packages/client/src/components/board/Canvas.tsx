@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Stage, Layer, Rect, Transformer } from 'react-konva';
+import { Stage, Layer, Rect, Line, Transformer } from 'react-konva';
 import type Konva from 'konva';
-import type { BoardObject, CreateBoardObjectInput } from '@collabboard/shared';
+import type { BoardObject, CreateBoardObjectInput, PathVariant, ShapeKind } from '@collabboard/shared';
 import { useBoardStore } from '../../stores/boardStore';
 import { emitCursorMove } from '../../hooks/useBoardSocket';
 import { BoardObjectView } from './objects/BoardObjectView';
 import { screenToWorld, clampScale, rectsIntersect, type Point } from '../../utils/coords';
-import { SHAPE_FILL, SHAPE_STROKE, inkColor, randomStickyColor } from '../../utils/objectDefaults';
+import { SHAPE_FILL, SHAPE_STROKE, HIGHLIGHTER_COLOR, inkColor, randomStickyColor } from '../../utils/objectDefaults';
+import { intersectRectBoundary } from '../../utils/geometry';
 import { throttle } from '../../utils/throttle';
 import { TextEditOverlay } from './TextEditOverlay';
 import { FloatingFormatToolbar } from './FloatingFormatToolbar';
 import { useTheme } from '../../theme/ThemeProvider';
 import { canEditBoard } from '../../utils/permissions';
+import type { ToolType } from '../../types/tool';
 import './Canvas.css';
 
 interface CanvasProps {
@@ -20,12 +22,55 @@ interface CanvasProps {
 }
 
 type DrawPreview =
-  | { kind: 'rectangle' | 'ellipse'; x: number; y: number; width: number; height: number }
-  | { kind: 'arrow'; points: number[] }
-  | { kind: 'path'; points: number[] };
+  | { kind: 'box'; tool: ToolType; x: number; y: number; width: number; height: number }
+  | { kind: 'line'; tool: ToolType; points: number[] }
+  | { kind: 'freehand'; tool: ToolType; points: number[] };
+
+const BOX_TOOLS = new Set<ToolType>([
+  'rectangle',
+  'roundedRectangle',
+  'ellipse',
+  'circle',
+  'triangle',
+  'diamond',
+  'pentagon',
+  'hexagon',
+  'star',
+  'polygon',
+]);
+const LINE_TOOLS = new Set<ToolType>(['arrow', 'curvedArrow', 'connector', 'line']);
+const FREEHAND_TOOLS = new Set<ToolType>(['pen', 'brush', 'highlighter']);
+
+const SHAPE_KIND_BY_TOOL: Partial<Record<ToolType, ShapeKind>> = {
+  triangle: 'triangle',
+  diamond: 'diamond',
+  pentagon: 'pentagon',
+  hexagon: 'hexagon',
+  star: 'star',
+  polygon: 'polygon',
+};
+
+const PATH_VARIANT_BY_TOOL: Partial<Record<ToolType, PathVariant>> = {
+  pen: 'pen',
+  brush: 'brush',
+  highlighter: 'highlighter',
+  line: 'line',
+};
 
 const TAP_MOVE_THRESHOLD_PX = 6;
 const DEFAULT_TEXT_FONT_SIZE = 32;
+const MIN_DRAG_SIZE = 4;
+
+const TOOL_SHORTCUTS: Record<string, ToolType> = {
+  v: 'select',
+  h: 'pan',
+  p: 'pen',
+  e: 'eraser',
+  s: 'sticky',
+  r: 'rectangle',
+  o: 'ellipse',
+  a: 'arrow',
+};
 
 export function Canvas({ boardId, stageRef }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,6 +139,14 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
         useBoardStore.getState().selectAll();
         return;
       }
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        const shortcutTool = TOOL_SHORTCUTS[e.key.toLowerCase()];
+        if (shortcutTool && (shortcutTool === 'select' || shortcutTool === 'pan' || canEdit)) {
+          e.preventDefault();
+          setTool(shortcutTool);
+          return;
+        }
+      }
       if (!canEdit) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
         e.preventDefault();
@@ -118,7 +171,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [selectedIds, deleteObject, canEdit]);
+  }, [selectedIds, deleteObject, canEdit, setTool]);
 
   const emitCursorThrottled = useMemo(
     () => throttle((x: number, y: number) => emitCursorMove(boardId, x, y), 40),
@@ -246,21 +299,21 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
       return;
     }
 
-    if (tool === 'rectangle' || tool === 'ellipse') {
+    if (BOX_TOOLS.has(tool)) {
       setDrawStart(world);
-      setPreview({ kind: tool, x: world.x, y: world.y, width: 0, height: 0 });
+      setPreview({ kind: 'box', tool, x: world.x, y: world.y, width: 0, height: 0 });
       return;
     }
 
-    if (tool === 'arrow') {
+    if (LINE_TOOLS.has(tool)) {
       setDrawStart(world);
-      setPreview({ kind: 'arrow', points: [0, 0, 0, 0] });
+      setPreview({ kind: 'line', tool, points: [0, 0, 0, 0] });
       return;
     }
 
-    if (tool === 'pen') {
+    if (FREEHAND_TOOLS.has(tool)) {
       setDrawStart(world);
-      setPreview({ kind: 'path', points: [0, 0] });
+      setPreview({ kind: 'freehand', tool, points: [0, 0] });
     }
   }
 
@@ -310,18 +363,27 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
 
     if (!preview || !drawStart) return;
 
-    if (preview.kind === 'rectangle' || preview.kind === 'ellipse') {
+    if (preview.kind === 'box') {
+      let rawDx = world.x - drawStart.x;
+      let rawDy = world.y - drawStart.y;
+      if (preview.tool === 'circle') {
+        // Constrain to a perfect circle while drawing (still resizable into
+        // an ellipse afterward via the transform handles, like most tools).
+        const size = Math.max(Math.abs(rawDx), Math.abs(rawDy));
+        rawDx = Math.sign(rawDx || 1) * size;
+        rawDy = Math.sign(rawDy || 1) * size;
+      }
       setPreview({
-        kind: preview.kind,
-        x: Math.min(drawStart.x, world.x),
-        y: Math.min(drawStart.y, world.y),
-        width: Math.abs(world.x - drawStart.x),
-        height: Math.abs(world.y - drawStart.y),
+        ...preview,
+        x: Math.min(drawStart.x, drawStart.x + rawDx),
+        y: Math.min(drawStart.y, drawStart.y + rawDy),
+        width: Math.abs(rawDx),
+        height: Math.abs(rawDy),
       });
-    } else if (preview.kind === 'arrow') {
-      setPreview({ kind: 'arrow', points: [0, 0, world.x - drawStart.x, world.y - drawStart.y] });
-    } else if (preview.kind === 'path') {
-      setPreview({ kind: 'path', points: [...preview.points, world.x - drawStart.x, world.y - drawStart.y] });
+    } else if (preview.kind === 'line') {
+      setPreview({ ...preview, points: [0, 0, world.x - drawStart.x, world.y - drawStart.y] });
+    } else if (preview.kind === 'freehand') {
+      setPreview({ ...preview, points: [...preview.points, world.x - drawStart.x, world.y - drawStart.y] });
     }
   }
 
@@ -369,69 +431,200 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
     }
 
     if (preview && drawStart) {
-      if (preview.kind === 'rectangle' && preview.width > 4 && preview.height > 4) {
-        createObject({
-          type: 'rectangle',
-          x: preview.x,
-          y: preview.y,
-          width: preview.width,
-          height: preview.height,
-          rotation: 0,
-          fill: SHAPE_FILL,
-          stroke: SHAPE_STROKE,
-          strokeWidth: 2,
-          cornerRadius: 6,
-        } as CreateBoardObjectInput);
-      } else if (preview.kind === 'ellipse' && preview.width > 4 && preview.height > 4) {
-        createObject({
-          type: 'ellipse',
-          x: preview.x,
-          y: preview.y,
-          width: preview.width,
-          height: preview.height,
-          rotation: 0,
-          fill: SHAPE_FILL,
-          stroke: SHAPE_STROKE,
-          strokeWidth: 2,
-        } as CreateBoardObjectInput);
-      } else if (preview.kind === 'arrow') {
-        const [, , ex, ey] = preview.points;
-        if (Math.hypot(ex ?? 0, ey ?? 0) > 4) {
-          createObject({
-            type: 'arrow',
-            x: drawStart.x,
-            y: drawStart.y,
-            width: Math.abs(ex ?? 0),
-            height: Math.abs(ey ?? 0),
-            rotation: 0,
-            points: preview.points,
-            stroke: inkColor(resolvedMode),
-            strokeWidth: 3,
-          } as CreateBoardObjectInput);
-        }
-      } else if (preview.kind === 'path' && preview.points.length > 3) {
-        const xs = [];
-        const ys = [];
-        for (let i = 0; i < preview.points.length; i += 2) {
-          xs.push(preview.points[i] ?? 0);
-          ys.push(preview.points[i + 1] ?? 0);
-        }
-        createObject({
-          type: 'path',
-          x: drawStart.x,
-          y: drawStart.y,
-          width: Math.max(...xs) - Math.min(...xs),
-          height: Math.max(...ys) - Math.min(...ys),
-          rotation: 0,
-          points: preview.points,
-          stroke: inkColor(resolvedMode),
-          strokeWidth: 3,
-        } as CreateBoardObjectInput);
+      if (preview.kind === 'box' && preview.width > MIN_DRAG_SIZE && preview.height > MIN_DRAG_SIZE) {
+        finalizeBoxObject(preview.tool, preview.x, preview.y, preview.width, preview.height);
+      } else if (preview.kind === 'line') {
+        finalizeLineObject(preview.tool, drawStart, preview.points);
+      } else if (preview.kind === 'freehand' && preview.points.length > 3) {
+        finalizeFreehandObject(preview.tool, drawStart, preview.points);
       }
     }
 
     setPreview(null);
     setDrawStart(null);
+  }
+
+  function finalizeBoxObject(tool: ToolType, x: number, y: number, width: number, height: number): void {
+    if (tool === 'rectangle' || tool === 'roundedRectangle') {
+      createObject({
+        type: 'rectangle',
+        x,
+        y,
+        width,
+        height,
+        rotation: 0,
+        fill: SHAPE_FILL,
+        stroke: SHAPE_STROKE,
+        strokeWidth: 2,
+        cornerRadius: tool === 'roundedRectangle' ? Math.min(20, Math.min(width, height) / 3) : 0,
+      } as CreateBoardObjectInput);
+      return;
+    }
+
+    if (tool === 'ellipse' || tool === 'circle') {
+      createObject({
+        type: 'ellipse',
+        x,
+        y,
+        width,
+        height,
+        rotation: 0,
+        fill: SHAPE_FILL,
+        stroke: SHAPE_STROKE,
+        strokeWidth: 2,
+      } as CreateBoardObjectInput);
+      return;
+    }
+
+    const shapeKind = SHAPE_KIND_BY_TOOL[tool];
+    if (!shapeKind) return;
+    createObject({
+      type: 'shape',
+      shapeKind,
+      x,
+      y,
+      width,
+      height,
+      rotation: 0,
+      fill: SHAPE_FILL,
+      stroke: SHAPE_STROKE,
+      strokeWidth: 2,
+      ...(shapeKind === 'polygon' ? { sides: 5 } : {}),
+    } as CreateBoardObjectInput);
+  }
+
+  function buildCurvedPoints(points: number[]): number[] {
+    const endX = points[2] ?? 0;
+    const endY = points[3] ?? 0;
+    const len = Math.hypot(endX, endY) || 1;
+    const bow = Math.min(60, len * 0.25);
+    const perpX = (-endY / len) * bow;
+    const perpY = (endX / len) * bow;
+    return [0, 0, endX / 2 + perpX, endY / 2 + perpY, endX, endY];
+  }
+
+  /** Topmost non-line object whose bounding box contains a world point (axis-aligned, ignores rotation). Used to snap connector endpoints to a shape. */
+  function findShapeAtPoint(point: Point): BoardObject | null {
+    for (let i = objectList.length - 1; i >= 0; i--) {
+      const o = objectList[i];
+      if (!o || o.type === 'arrow' || o.type === 'path') continue;
+      if (point.x >= o.x && point.x <= o.x + o.width && point.y >= o.y && point.y <= o.y + o.height) {
+        return o;
+      }
+    }
+    return null;
+  }
+
+  function finalizeLineObject(tool: ToolType, start: Point, relativePoints: number[]): void {
+    const endX = relativePoints[2] ?? 0;
+    const endY = relativePoints[3] ?? 0;
+    if (Math.hypot(endX, endY) <= MIN_DRAG_SIZE) return;
+
+    if (tool === 'connector') {
+      finalizeConnector(start, { x: start.x + endX, y: start.y + endY });
+      return;
+    }
+
+    if (tool === 'line') {
+      createObject({
+        type: 'path',
+        variant: 'line',
+        x: start.x,
+        y: start.y,
+        width: Math.abs(endX),
+        height: Math.abs(endY),
+        rotation: 0,
+        points: relativePoints,
+        stroke: inkColor(resolvedMode),
+        strokeWidth: 3,
+      } as CreateBoardObjectInput);
+      return;
+    }
+
+    const curved = tool === 'curvedArrow';
+    const points = curved ? buildCurvedPoints(relativePoints) : relativePoints;
+    createObject({
+      type: 'arrow',
+      x: start.x,
+      y: start.y,
+      width: Math.abs(endX),
+      height: Math.abs(endY),
+      rotation: 0,
+      points,
+      curved,
+      stroke: inkColor(resolvedMode),
+      strokeWidth: 3,
+    } as CreateBoardObjectInput);
+  }
+
+  function finalizeConnector(startWorld: Point, endWorld: Point): void {
+    const fromShape = findShapeAtPoint(startWorld);
+    const toShape = findShapeAtPoint(endWorld);
+
+    let start = startWorld;
+    let end = endWorld;
+
+    if (fromShape) {
+      start = intersectRectBoundary(
+        fromShape.x + fromShape.width / 2,
+        fromShape.y + fromShape.height / 2,
+        fromShape.width / 2,
+        fromShape.height / 2,
+        endWorld.x,
+        endWorld.y
+      );
+    }
+    if (toShape) {
+      end = intersectRectBoundary(
+        toShape.x + toShape.width / 2,
+        toShape.y + toShape.height / 2,
+        toShape.width / 2,
+        toShape.height / 2,
+        startWorld.x,
+        startWorld.y
+      );
+    }
+
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    if (Math.hypot(dx, dy) <= MIN_DRAG_SIZE) return;
+
+    createObject({
+      type: 'arrow',
+      x: start.x,
+      y: start.y,
+      width: Math.abs(dx),
+      height: Math.abs(dy),
+      rotation: 0,
+      points: [0, 0, dx, dy],
+      stroke: inkColor(resolvedMode),
+      strokeWidth: 2,
+      connectorFrom: fromShape?.id,
+      connectorTo: toShape?.id,
+    } as CreateBoardObjectInput);
+  }
+
+  function finalizeFreehandObject(tool: ToolType, start: Point, points: number[]): void {
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (let i = 0; i < points.length; i += 2) {
+      xs.push(points[i] ?? 0);
+      ys.push(points[i + 1] ?? 0);
+    }
+    const variant = PATH_VARIANT_BY_TOOL[tool] ?? 'pen';
+    const strokeWidth = variant === 'brush' ? 10 : variant === 'highlighter' ? 22 : 3;
+    createObject({
+      type: 'path',
+      variant,
+      x: start.x,
+      y: start.y,
+      width: Math.max(...xs) - Math.min(...xs),
+      height: Math.max(...ys) - Math.min(...ys),
+      rotation: 0,
+      points,
+      stroke: variant === 'highlighter' ? HIGHLIGHTER_COLOR : inkColor(resolvedMode),
+      strokeWidth,
+    } as CreateBoardObjectInput);
   }
 
   const editingObject = editingId ? objects[editingId] : null;
@@ -487,7 +680,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
             />
           ))}
 
-          {preview && (preview.kind === 'rectangle' || preview.kind === 'ellipse') && (
+          {preview && preview.kind === 'box' && (
             <Rect
               x={preview.x}
               y={preview.y}
@@ -495,6 +688,33 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
               height={preview.height}
               stroke={SHAPE_STROKE}
               dash={[6, 4]}
+              listening={false}
+            />
+          )}
+
+          {preview && preview.kind === 'line' && drawStart && (
+            <Line
+              x={drawStart.x}
+              y={drawStart.y}
+              points={preview.points}
+              stroke={inkColor(resolvedMode)}
+              strokeWidth={2}
+              dash={[8, 6]}
+              listening={false}
+            />
+          )}
+
+          {preview && preview.kind === 'freehand' && drawStart && (
+            <Line
+              x={drawStart.x}
+              y={drawStart.y}
+              points={preview.points}
+              stroke={preview.tool === 'highlighter' ? HIGHLIGHTER_COLOR : inkColor(resolvedMode)}
+              strokeWidth={preview.tool === 'brush' ? 10 : preview.tool === 'highlighter' ? 22 : 3}
+              opacity={preview.tool === 'highlighter' ? 0.35 : 1}
+              lineCap="round"
+              lineJoin="round"
+              tension={0.4}
               listening={false}
             />
           )}
