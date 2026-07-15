@@ -13,7 +13,23 @@
   padding: 6px;
   z-index: 20;
   max-width: calc(100vw - 32px);
+  /* Deliberately NOT overflow-x:auto here -- that would also clip
+     overflow-y (setting overflow on one axis forces clipping on both,
+     per the CSS spec), hiding the More-tools popup panel which is
+     positioned outside this box. Only .toolbar-scroll scrolls. */
+}
+
+.toolbar-scroll {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   overflow-x: auto;
+  min-width: 0;
+  scrollbar-width: none;
+}
+
+.toolbar-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .toolbar-btn {
@@ -53,6 +69,9 @@
     gap: 2px;
     padding: 4px;
     bottom: 12px;
+  }
+  .toolbar-scroll {
+    gap: 2px;
   }
   .toolbar-btn {
     width: 32px;

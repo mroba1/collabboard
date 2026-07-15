@@ -61,35 +61,41 @@ export function Toolbar() {
 
   return (
     <div className="toolbar">
-      {VIEW_TOOLS.map((t) => (
-        <button
-          key={t.type}
-          className={`toolbar-btn ${tool === t.type ? 'active' : ''}`}
-          title={t.label}
-          onClick={() => setTool(t.type)}
-        >
-          {t.icon}
-        </button>
-      ))}
+      <div className="toolbar-scroll">
+        {VIEW_TOOLS.map((t) => (
+          <button
+            key={t.type}
+            className={`toolbar-btn ${tool === t.type ? 'active' : ''}`}
+            title={t.label}
+            onClick={() => setTool(t.type)}
+          >
+            {t.icon}
+          </button>
+        ))}
+
+        {canEdit && (
+          <>
+            {EDIT_TOOLS.map((t) => (
+              <button
+                key={t.type}
+                className={`toolbar-btn ${tool === t.type ? 'active' : ''}`}
+                title={t.label}
+                onClick={() => setTool(t.type)}
+              >
+                {t.icon}
+              </button>
+            ))}
+
+            <button className="toolbar-btn" title="Upload image" onClick={() => fileInputRef.current?.click()}>
+              🖼
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleImageFile} />
+          </>
+        )}
+      </div>
 
       {canEdit && (
         <>
-          {EDIT_TOOLS.map((t) => (
-            <button
-              key={t.type}
-              className={`toolbar-btn ${tool === t.type ? 'active' : ''}`}
-              title={t.label}
-              onClick={() => setTool(t.type)}
-            >
-              {t.icon}
-            </button>
-          ))}
-
-          <button className="toolbar-btn" title="Upload image" onClick={() => fileInputRef.current?.click()}>
-            🖼
-          </button>
-          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleImageFile} />
-
           <div className="toolbar-divider" />
           <MoreToolsMenu tool={tool} onSelect={setTool} />
         </>
