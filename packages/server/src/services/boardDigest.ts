@@ -32,6 +32,8 @@ function labelFor(obj: BoardObject): string {
       return 'Arrow';
     case 'path':
       return 'Freehand drawing';
+    case 'shape':
+      return `${obj.shapeKind.charAt(0).toUpperCase()}${obj.shapeKind.slice(1)} shape`;
     default:
       return 'Object';
   }

@@ -11,6 +11,7 @@ import { intersectRectBoundary } from '../../utils/geometry';
 import { throttle } from '../../utils/throttle';
 import { TextEditOverlay } from './TextEditOverlay';
 import { FloatingFormatToolbar } from './FloatingFormatToolbar';
+import { ShapeColorToolbar } from './ShapeColorToolbar';
 import { useTheme } from '../../theme/ThemeProvider';
 import { canEditBoard } from '../../utils/permissions';
 import type { ToolType } from '../../types/tool';
@@ -86,6 +87,7 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
   const panLast = useRef<Point | null>(null);
   const tapStart = useRef<Point | null>(null);
   const spaceHeld = useRef(false);
+  const erasing = useRef(false);
   const pinchRef = useRef<{
     startDistance: number;
     startScale: number;
@@ -280,7 +282,11 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
       return;
     }
 
-    if (tool === 'eraser') return;
+    if (tool === 'eraser') {
+      erasing.current = true;
+      eraseAtPoint(world);
+      return;
+    }
 
     if (tool === 'sticky') {
       const obj = createObject({
@@ -343,6 +349,11 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
 
     emitCursorThrottled(world.x, world.y);
 
+    if (erasing.current) {
+      eraseAtPoint(world);
+      return;
+    }
+
     if (isPanning && panLast.current) {
       const dx = screenPos.x - panLast.current.x;
       const dy = screenPos.y - panLast.current.y;
@@ -390,6 +401,11 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
   function handleMouseUp(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if ('touches' in e.evt && e.evt.touches.length < 2 && pinchRef.current) {
       pinchRef.current = null;
+      return;
+    }
+
+    if (erasing.current) {
+      erasing.current = false;
       return;
     }
 
@@ -515,6 +531,15 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
     return null;
   }
 
+  /** Deletes every object (of any type) whose bounding box contains a world point -- used to sweep-erase while dragging with the eraser tool, matching how a physical eraser wipes out anything it passes over rather than requiring one deletion per double-click. */
+  function eraseAtPoint(point: Point): void {
+    for (const o of objectList) {
+      if (point.x >= o.x && point.x <= o.x + o.width && point.y >= o.y && point.y <= o.y + o.height) {
+        deleteObject(o.id);
+      }
+    }
+  }
+
   function finalizeLineObject(tool: ToolType, start: Point, relativePoints: number[]): void {
     const endX = relativePoints[2] ?? 0;
     const endY = relativePoints[3] ?? 0;
@@ -631,6 +656,16 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
   const selectedSingle = selectedIds.length === 1 ? objects[selectedIds[0] as string] : null;
   const formatTarget =
     canEdit && selectedSingle && (selectedSingle.type === 'text' || selectedSingle.type === 'sticky')
+      ? selectedSingle
+      : null;
+  const colorTarget =
+    canEdit &&
+    selectedSingle &&
+    (selectedSingle.type === 'rectangle' ||
+      selectedSingle.type === 'ellipse' ||
+      selectedSingle.type === 'shape' ||
+      selectedSingle.type === 'path' ||
+      selectedSingle.type === 'arrow')
       ? selectedSingle
       : null;
 
@@ -763,6 +798,14 @@ export function Canvas({ boardId, stageRef }: CanvasProps) {
           object={formatTarget}
           viewport={viewport}
           onChange={(changes) => updateObject(formatTarget.id, changes as Partial<BoardObject>)}
+        />
+      )}
+
+      {colorTarget && (
+        <ShapeColorToolbar
+          object={colorTarget}
+          viewport={viewport}
+          onChange={(changes) => updateObject(colorTarget.id, changes as Partial<BoardObject>)}
         />
       )}
     </div>

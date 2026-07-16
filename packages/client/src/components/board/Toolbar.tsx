@@ -59,9 +59,20 @@ export function Toolbar() {
     reader.readAsDataURL(file);
   }
 
+  function handleWheel(e: React.WheelEvent<HTMLDivElement>) {
+    // A plain mouse wheel only scrolls vertically by default, which does
+    // nothing for a horizontally-overflowing row -- redirect vertical
+    // wheel delta to horizontal scroll so the toolbar is reachable with a
+    // regular mouse, not just touch/trackpad swipes.
+    if (e.deltaY !== 0 && e.currentTarget.scrollWidth > e.currentTarget.clientWidth) {
+      e.currentTarget.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }
+
   return (
     <div className="toolbar">
-      <div className="toolbar-scroll">
+      <div className="toolbar-scroll" onWheel={handleWheel}>
         {VIEW_TOOLS.map((t) => (
           <button
             key={t.type}

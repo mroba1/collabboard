@@ -1,6 +1,8 @@
-import OpenAI from 'openai';
+import OpenAI, { APIError } from 'openai';
+import type { ChatCompletionCreateParamsNonStreaming } from 'openai/resources/chat/completions';
 import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
+import { logger } from '../utils/logger.js';
 import { buildBoardDigest } from './boardDigest.js';
 import type {
   AIGenerateDiagramResponse,
@@ -20,6 +22,37 @@ function getClient(): OpenAI {
   return client;
 }
 
+/**
+ * Wraps every OpenAI call so failures reach the client as a clear,
+ * actionable message instead of collapsing into a generic 500 -- invalid
+ * keys, missing billing, and rate limits all fail very differently and
+ * were previously indistinguishable from any other unhandled server error.
+ */
+async function createChatCompletion(params: ChatCompletionCreateParamsNonStreaming) {
+  try {
+    return await getClient().chat.completions.create(params);
+  } catch (err) {
+    if (err instanceof APIError) {
+      logger.error('OpenAI API error', { status: err.status, message: err.message });
+      if (err.status === 401) {
+        throw new AppError('The OpenAI API key configured on this server is invalid or has been revoked.', 502);
+      }
+      if (err.status === 429) {
+        throw new AppError(
+          'The OpenAI account has hit a rate limit or has no available quota/billing set up. Check the OpenAI account\'s billing settings.',
+          502
+        );
+      }
+      if (err.status === 404) {
+        throw new AppError(`The configured AI model "${env.OPENAI_MODEL}" is not available for this API key.`, 502);
+      }
+      throw new AppError(`AI request failed: ${err.message}`, 502);
+    }
+    logger.error('Unexpected error calling OpenAI', { error: (err as Error)?.message });
+    throw new AppError('AI request failed unexpectedly. Please try again.', 502);
+  }
+}
+
 const SYSTEM_PROMPT = [
   'You are the embedded AI assistant inside CollabBoard, a real-time collaborative whiteboard app.',
   'You are given a structured digest describing every object currently on the board (shapes, sticky notes,',
@@ -29,7 +62,7 @@ const SYSTEM_PROMPT = [
 
 export async function summarizeBoard(objects: BoardObject[]): Promise<string> {
   const digest = buildBoardDigest(objects);
-  const completion = await getClient().chat.completions.create({
+  const completion = await createChatCompletion({
     model: env.OPENAI_MODEL,
     temperature: 0.4,
     messages: [
@@ -45,7 +78,7 @@ export async function summarizeBoard(objects: BoardObject[]): Promise<string> {
 
 export async function askAboutBoard(objects: BoardObject[], question: string): Promise<string> {
   const digest = buildBoardDigest(objects);
-  const completion = await getClient().chat.completions.create({
+  const completion = await createChatCompletion({
     model: env.OPENAI_MODEL,
     temperature: 0.3,
     messages: [
@@ -61,7 +94,7 @@ export async function askAboutBoard(objects: BoardObject[], question: string): P
 
 export async function suggestNextSteps(objects: BoardObject[]): Promise<string[]> {
   const digest = buildBoardDigest(objects);
-  const completion = await getClient().chat.completions.create({
+  const completion = await createChatCompletion({
     model: env.OPENAI_MODEL,
     temperature: 0.6,
     response_format: {
@@ -142,7 +175,7 @@ export async function generateDiagram(
   diagramType: DiagramType = 'flowchart'
 ): Promise<AIGenerateDiagramResponse> {
   const digest = buildBoardDigest(objects);
-  const completion = await getClient().chat.completions.create({
+  const completion = await createChatCompletion({
     model: env.OPENAI_MODEL,
     temperature: 0.4,
     response_format: {

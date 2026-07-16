@@ -25,11 +25,23 @@
   gap: 4px;
   overflow-x: auto;
   min-width: 0;
-  scrollbar-width: none;
+  /* Thin but visible, so it's clear there's more to scroll to (a fully
+     hidden scrollbar gives no hint the row overflows at all). */
+  scrollbar-width: thin;
+  padding-bottom: 2px;
 }
 
 .toolbar-scroll::-webkit-scrollbar {
-  display: none;
+  height: 5px;
+}
+
+.toolbar-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 999px;
+}
+
+.toolbar-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .toolbar-btn {
